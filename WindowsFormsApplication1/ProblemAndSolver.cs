@@ -309,7 +309,7 @@ namespace TSP
             {
                 g.FillEllipse(cityBrushStyle, (float)c.X * width, (float)c.Y * height, CITY_ICON_SIZE, CITY_ICON_SIZE);
             }
-            String stored = "maxStoredStates: " + maxStatesStored;
+            /*String stored = "maxStoredStates: " + maxStatesStored;
             String numStates = "numStatesCreated: " + numStatesCreated;
             String pruned = "States Pruned: " + numStatesPruned;
             System.Drawing.Font drawFont = new System.Drawing.Font(
@@ -318,7 +318,7 @@ namespace TSP
         System.Drawing.SolidBrush(System.Drawing.Color.Black);
             g.DrawString(stored, drawFont, drawBrush, 30f, 30f);
             g.DrawString(numStates, drawFont, drawBrush, 30f, 130f);
-            g.DrawString(pruned, drawFont, drawBrush, 30f, 230f);
+            g.DrawString(pruned, drawFont, drawBrush, 30f, 230f);*/
 
         }
 
