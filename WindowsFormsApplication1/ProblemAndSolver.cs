@@ -486,17 +486,76 @@ namespace TSP
         /// finds the greedy tour starting from each city and keeps the best (valid) one
         /// </summary>
         /// <returns>results array for GUI that contains three ints: cost of solution, time spent to find solution, number of solutions found during search (not counting initial BSSF estimate)</returns>
+        private Boolean[] citiesVisited;
         public string[] greedySolveProblem()
         {
             string[] results = new string[3];
+            var watch = System.Diagnostics.Stopwatch.StartNew();
 
-            // TODO: Add your implementation for a greedy solver here.
+            for(int i = 0; i < Cities.Length; i++)
+            {
+                TSPSolution temp = greedySolveProblem(i);
+                double tempLength = temp.costOfRoute();
+                double bssfLength = costOfBssf();
+                if (bssf == null)
+                {
+                    bssf = temp;
+                }
+                else
+                {
+                    if (temp.costOfRoute() < costOfBssf())
+                    {
+                        bssf = temp;
+                    }
+                }
+            }
 
-            results[COST] = "not implemented";    // load results into array here, replacing these dummy values
-            results[TIME] = "-1";
-            results[COUNT] = "-1";
-
+            results[COST] = bssf.costOfRoute().ToString();    // load results into array here, replacing these dummy values
+            results[TIME] = watch.Elapsed.ToString();
+            results[COUNT] = "1";
             return results;
+        }
+        private TSPSolution greedySolveProblem(int startingIndex)
+        {
+            
+            // TODO: Add your implementation for a greedy solver here.
+            citiesVisited = new Boolean[Cities.Length];
+
+
+            //double costSoFar = Double.PositiveInfinity;
+            Route = new ArrayList();
+            Route.Add(Cities[startingIndex]);
+            citiesVisited[startingIndex] = true;
+            int lastCity = startingIndex;
+            while (Route.Count < Cities.Length)
+            {
+                int nextCity = 0;
+                double lowestCost = Double.PositiveInfinity;
+                for (int i = 0; i < Cities.Length; i++)
+                {
+                    if (citiesVisited[i])
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        double cost = Cities[lastCity].costToGetTo(Cities[i]);
+                        if (Cities[lastCity].costToGetTo(Cities[i]) < lowestCost)
+                        {
+                            nextCity = i;
+                            lowestCost = cost;
+                        }
+                    }
+                }
+                citiesVisited[nextCity] = true;
+                Route.Add(Cities[nextCity]);
+                lastCity = nextCity;
+            }
+            
+
+            return new TSPSolution(Route);
+
+            
         }
 
         public string[] fancySolveProblem()
