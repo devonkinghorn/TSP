@@ -558,19 +558,289 @@ namespace TSP
             
         }
 
+        private int Q = 500;
+        private double DECAY_COEF = .5;
+        private double BETA = 5;
+        private double ALPHA = 1;
+        private double STARTING_PHER = 1.0;
+        private int NUM_ITERATIONS = 2000;
+        private double RANDOM_CHANCE = .03;
+
+        private int numAnts = 0;
+        private Random rand = new Random();
+
+        private double[,] pher;
+        private Ant[] ants;
+
         public string[] fancySolveProblem()
         {
             string[] results = new string[3];
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            pher = new double[Cities.Length, Cities.Length];
 
-            // TODO: Add your implementation for your advanced solver here.
+            int iteration = 0;
+            int updates = 0;
+            initializePher();
 
-            results[COST] = "not implemented";    // load results into array here, replacing these dummy values
-            results[TIME] = "-1";
-            results[COUNT] = "-1";
+            while (iteration < NUM_ITERATIONS)
+            {
+                initializeAnts();
+                for (int i = 0; i < numAnts; i++)
+                {
+                    doCircut(ants[i]);
+                }
+                PherDecay();
+                pherUpdate();
+                TSPSolution tempSolution = getShortestTour();
+                if (bssf == null)
+                {
+                    updates++;
+                    bssf = tempSolution;
+                }
+                if (tempSolution.costOfRoute() <= bssf.costOfRoute())
+                {
+                    updates++;
+                    bssf = tempSolution;
+                }
+                iteration++;
+            }
+
+            watch.Stop();
+
+            results[COST] = bssf.costOfRoute().ToString();    // load results into array here, replacing these dummy values
+            results[TIME] = watch.Elapsed.ToString();
+            results[COUNT] = updates.ToString();
 
             return results;
         }
-        #endregion
+
+        private TSPSolution getShortestTour()
+        {
+            double lowestCost = Double.PositiveInfinity;
+            Ant lowestAnt = null;
+            foreach (Ant ant in ants)
+            {
+                if (ant.getFinalTourLength(Cities) < lowestCost)
+                {
+                    lowestCost = ant.getFinalTourLength(Cities);
+                    lowestAnt = ant;
+                }
+            }
+            if (lowestAnt == null)
+            {
+                return null;
+            }
+            return new TSPSolution(indexToCities(Cities, lowestAnt.pathSoFar));
+        }
+
+        public void initializePher()
+        {
+            for (int i = 0; i < Cities.Length; i++)
+            {
+                for (int j = 0; j < Cities.Length; j++)
+                {
+                    pher[i, j] = STARTING_PHER;
+                }
+            }
+        }
+
+        public void initializeAnts()
+        {
+            numAnts = Cities.Length;
+            ants = new Ant[numAnts];
+            for (int i = 0; i < numAnts; i++)
+            {
+                ants[i] = new Ant(Cities.Length);
+            }
+        }
+
+        public void doCircut(Ant ant)
+        {
+            ant.visitCity(rand.Next(0, Cities.Length));
+            for (int i = 0; i < Cities.Length - 1; i++)
+            {
+
+                if (rand.NextDouble() < RANDOM_CHANCE)
+                {
+                    int t = rand.Next(Cities.Length - ant.getCurrentCity()); // random town
+                    int j = -1;
+                    for (int k = 0; k < Cities.Length; k++)
+                    {
+                        if (!ant.citiesVisited[k])
+                            j++;
+                        if (j == t)
+                        {
+                            ant.visitCity(k);
+                            break;
+                        }
+                    }
+                }
+
+                double[] probs = new double[Cities.Length];
+                double denom = 0.0;
+
+                for (int j = 0; j < Cities.Length; j++)
+                {
+                    if (ant.citiesVisited[j])
+                    {
+                        probs[j] = 0.0;
+                    }
+                    else
+                    {
+
+                        probs[j] = getProbability(ant.getCurrentCity(), j);
+                    }
+                    denom += probs[j];
+                }
+
+                if (denom == 0)
+                {
+                    ant = new Ant(Cities.Length);
+                    doCircut(ant);
+                    if (ant.pathSoFar.Count < Cities.Length)
+                    {
+                        finishPath(ant);
+                        return;
+                    }
+                    return;
+                }
+                for (int j = 0; j < Cities.Length; j++)
+                {
+                    probs[j] /= denom;
+                }
+                double r = rand.NextDouble();
+                double total = 0.0;
+                for (int j = 0; j < Cities.Length; j++)
+                {
+                    total += probs[j];
+                    if (total >= r)
+                    {
+                        ant.visitCity(j);
+                        break;
+                    }
+                }
+            }
+            if (ant.pathSoFar.Count < Cities.Length)
+            {
+                finishPath(ant);
+                return;
+            }
+        }
+
+        private void finishPath(Ant ant)
+        {
+            while (ant.pathSoFar.Count < Cities.Length)
+            {
+                for (int i = 0; i < Cities.Length; i++)
+                {
+                    if (!ant.citiesVisited[i])
+                    {
+                        ant.visitCity(i);
+                    }
+                }
+            }
+        }
+
+        public double getProbability(int city1, int city2)
+        {
+            double pherLevel = pher[city1, city2];
+            double dist = Cities[city1].costToGetTo(Cities[city2]);
+            if (!Double.IsPositiveInfinity(dist))
+            {
+                return (Math.Pow(pherLevel, ALPHA) * Math.Pow((1 / dist), BETA));
+            }
+            else
+            {
+                return 0.0;
+            }
+        }
+
+        public void PherDecay()
+        {
+            for (int i = 0; i < Cities.Length; i++)
+            {
+                for (int j = 0; j < Cities.Length; j++)
+                {
+                    pher[i, j] *= DECAY_COEF;
+                }
+            }
+        }
+
+        public void pherUpdate()
+        {
+            foreach (Ant ant in ants)
+            {
+                try
+                {
+                    double con = Q / ant.getFinalTourLength(Cities);
+                    for (int i = 0; i < Cities.Length - 1; i++)
+                    {
+                        pher[ant.pathSoFar[i], ant.pathSoFar[i + 1]] += con;
+                    }
+                    pher[ant.pathSoFar[Cities.Length - 1], ant.pathSoFar[0]] += con;
+                }
+                catch
+                {
+
+                }
+            }
+        }
+
+        public class Ant
+        {
+            public bool[] citiesVisited;
+            public List<int> pathSoFar;
+
+            public Ant(int numberOfCities)
+            {
+                citiesVisited = new bool[numberOfCities];
+                pathSoFar = new List<int>();
+            }
+
+            public void visitCity(int cityIndex)
+            {
+                citiesVisited[cityIndex] = true;
+                pathSoFar.Add(cityIndex);
+            }
+
+            public double getFinalTourLength(City[] cities)
+            {
+                try
+                {
+                    TSPSolution solution = new TSPSolution(indexToCities(cities, pathSoFar));
+                    return solution.costOfRoute();
+                }
+                catch
+                {
+                    return Double.PositiveInfinity;
+                }
+            }
+
+            public int getCurrentCity()
+            {
+                return pathSoFar[pathSoFar.Count - 1];
+            }
+
+
+        }
+
+
+        public static ArrayList indexToCities(City[] cities, List<int> indexs)
+        {
+            ArrayList citiesList = new ArrayList();
+            ArrayList arrayIndexs = new ArrayList(indexs);
+            for (int i = 0; i < cities.Length; i++)
+            {
+                citiesList.Add(cities[(int)arrayIndexs[i]]);
+            }
+            return citiesList;
+        }
+
+
+
+
+        
     }
 
+    #endregion
 }
